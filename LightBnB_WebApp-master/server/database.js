@@ -100,7 +100,7 @@ exports.addUser = addUser;
  */
 const getAllReservations = function (guest_id, limit = 10) {
   return pool.query(
-  `SELECT 
+    `SELECT 
   reservations.start_date, 
   reservations.id, 
   properties.*,
@@ -112,14 +112,14 @@ WHERE reservations.guest_id = $1
 GROUP BY properties.id, reservations.id
 ORDER BY reservations.start_date
 LIMIT $2;`, [guest_id, limit])
-.then(result => {
-  //console.log('result.rows', result.rows);
-  return result.rows;
-})
-.catch(err => {
-  console.log(err.message);
-  return err;
-});
+    .then(result => {
+      //console.log('result.rows', result.rows);
+      return result.rows;
+    })
+    .catch(err => {
+      console.log(err.message);
+      return err;
+    });
 
   /* return getAllProperties(null, 2); */
 }
@@ -129,21 +129,61 @@ exports.getAllReservations = getAllReservations;
 
 /**
  * Get all properties.
- * @param {{}} options An object containing query options.
+ * @param {{}} options An object containing query options. { city,  owner_id,  minimum_price_per_night,  maximum_price_per_night,  minimum_rating;}
  * @param {*} limit The number of results to return.
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = (options, limit = 10) => {
-  return pool
-    .query(`SELECT * FROM properties LIMIT $1;`, [limit])
+ // 1
+ const queryParams = [];
+ // 2
+ let queryString = `
+ SELECT properties.*, avg(property_reviews.rating) as average_rating
+ FROM properties
+ JOIN property_reviews ON properties.id = property_id
+ `;
+
+ // 3
+ if (options.city) {
+   queryParams.push(`%${options.city}%`);
+   queryString += `WHERE city LIKE $${queryParams.length} `;
+ }
+
+ // 4
+ queryParams.push(limit);
+ queryString += `
+ GROUP BY properties.id
+ ORDER BY cost_per_night
+ LIMIT $${queryParams.length};
+ `;
+
+ // 5
+ console.log(queryString, queryParams);
+
+ // 6
+ return pool.query(queryString, queryParams).then((res) => res.rows);
+
+  /* return pool
+    .query(
+      `SELECT properties.*, avg(property_reviews.rating) AS average_rating
+        FROM properties
+        JOIN property_reviews ON property_id = properties.id
+        WHERE city LIKE '%$1%'
+        GROUP BY properties.id
+        HAVING avg(property_reviews.rating) >= 4
+        ORDER BY cost_per_night
+        LIMIT $2;`    
+    , [options, limit])
     .then((result) => {
       //console.log(result.rows);
       return result.rows;
     })
     .catch((err) => {
       console.log(err.message);
-    });
+    }); */
 };
+
+
 exports.getAllProperties = getAllProperties;
 
 
